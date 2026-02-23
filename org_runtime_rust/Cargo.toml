@@ -1,0 +1,12 @@
+[package]
+name = "org_runtime_rust"
+version = "1.0.0"
+edition = "2021"
+description = "Rust runtime for OrgEngine — wraps frozen Kernel v1.0"
+
+[dependencies]
+org_engine_replica = { path = "../org_engine_replica" }
+prost = "0.13"
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }

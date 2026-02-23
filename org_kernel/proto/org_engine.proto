@@ -1,0 +1,106 @@
+// OrgEngine v1.1 — Canonical Protobuf Schema
+// Reference document. No generated code (stdlib-only constraint).
+// Defines the wire format for cross-language deterministic replay.
+
+syntax = "proto3";
+package orgengine;
+
+// ── Event Envelope ───────────────────────────────────────────
+
+message EventEnvelope {
+  uint64 sequence = 1;
+  uint64 logical_time = 2; // purely ordering hint, not used in logic
+  Event event = 3;
+}
+
+message Event {
+  oneof kind {
+    AddRole add_role = 1;
+    RemoveRole remove_role = 2;
+    DifferentiateRole differentiate_role = 3;
+    CompressRoles compress_roles = 4;
+    ApplyConstraintChange apply_constraint_change = 5;
+    InjectShock inject_shock = 6;
+    InitializeConstants initialize_constants = 7;
+  }
+}
+
+// ── Role ─────────────────────────────────────────────────────
+
+message Role {
+  string id = 1;            // ASCII [a-zA-Z0-9_-] only
+  string name = 2;
+  string purpose = 3;
+  repeated string responsibilities = 4;   // sorted
+  repeated string required_inputs = 5;    // sorted
+  repeated string produced_outputs = 6;   // sorted
+  string scale_stage = 7;
+  bool active = 8;
+}
+
+// ── Dependency ───────────────────────────────────────────────
+
+message DependencyEdge {
+  string from_role_id = 1;
+  string to_role_id = 2;
+  string dependency_type = 3;
+  bool critical = 4;
+}
+
+// ── Constraint Vector (Fixed-Point, SCALE=10000) ─────────────
+
+message ConstraintVector {
+  int64 capital = 1;
+  int64 talent = 2;
+  int64 time = 3;
+  int64 political_cost = 4;
+}
+
+// ── Domain Constants ─────────────────────────────────────────
+
+message DomainConstants {
+  uint32 differentiation_threshold = 1;
+  int64 differentiation_min_capacity = 2;
+  uint32 compression_max_combined_responsibilities = 3;
+  uint32 shock_deactivation_threshold = 4;
+  uint32 shock_debt_base_multiplier = 5;
+  uint32 suppressed_differentiation_debt_increment = 6;
+}
+
+// ── Event Types ──────────────────────────────────────────────
+
+message InitializeConstants {
+  DomainConstants constants = 1;
+}
+
+message AddRole {
+  Role role = 1;
+}
+
+message RemoveRole {
+  string role_id = 1;
+}
+
+message DifferentiateRole {
+  string role_id = 1;
+  repeated Role new_roles = 2;
+}
+
+message CompressRoles {
+  string source_role_id = 1;
+  string target_role_id = 2;
+  string compressed_name = 3;
+  string compressed_purpose = 4;
+}
+
+message ApplyConstraintChange {
+  int64 capital_delta = 1;
+  int64 talent_delta = 2;
+  int64 time_delta = 3;
+  int64 political_cost_delta = 4;
+}
+
+message InjectShock {
+  string target_role_id = 1;
+  uint32 magnitude = 2;
+}

@@ -1,0 +1,11 @@
+{
+    "kernel_version": 1,
+    "schema_version": 1,
+    "build_commit": "initial-v1-freeze",
+    "rust_version": "1.93.1",
+    "golden_hash": "c9028c1ed06b457b764527cfcc578523978c90fadfaeb16b9e2cc4b858325975",
+    "event_count": 51,
+    "seed": 42,
+    "frozen_at": "2026-02-13",
+    "immutability_rule": "This archive is a permanent historical artifact. It must never be overwritten or modified."
+}

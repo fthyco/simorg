@@ -1,0 +1,13 @@
+# Exclude large files not needed by either Vercel project
+org_runtime_rust/
+org_engine_replica/
+org_runtime/
+*.rs
+*.toml
+*.lock
+*.db
+*.proto
+Cargo.lock
+test_*.py
+.gemini/
+.agent/
