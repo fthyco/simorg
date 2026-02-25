@@ -50,12 +50,12 @@ export default function EventOutcomePanel({ result }: EventOutcomePanelProps) {
                 {/* Operations Executed */}
                 {result.differentiation_executed && (
                     <div style={{ fontSize: 12, color: "var(--brand-primary)", fontWeight: 500 }}>
-                        ✓ Differentiation Executed
+                        Differentiation Executed
                     </div>
                 )}
                 {result.compression_executed && (
                     <div style={{ fontSize: 12, color: "var(--brand-primary)", fontWeight: 500 }}>
-                        ✓ Compression Executed
+                        Compression Executed
                     </div>
                 )}
                 {result.differentiation_skipped && (
@@ -65,7 +65,7 @@ export default function EventOutcomePanel({ result }: EventOutcomePanelProps) {
                 )}
                 {result.deactivated && (
                     <div style={{ fontSize: 12, color: "var(--accent-rose)", fontWeight: 600 }}>
-                        ⚠ Role Deactivated
+                        Role Deactivated
                     </div>
                 )}
 

@@ -56,7 +56,7 @@ function DepartmentNode({ data }: NodeProps<Node<DepartmentNodeData>>) {
                     : department.semantic_label}</h3>
                 <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                     {boundaryHeat > 0.5 && (
-                        <span title={`Boundary Heat: ${boundaryHeat.toFixed(2)}`} style={{ color: "var(--accent-rose)", fontSize: 13, cursor: "help" }}>🔥</span>
+                        <span title={`Boundary Heat: ${boundaryHeat.toFixed(2)}`} style={{ color: "var(--accent-rose)", fontSize: 10, cursor: "help", fontWeight: 600, border: "1px solid var(--accent-rose)", padding: "1px 4px", borderRadius: 4 }}>HEAT</span>
                     )}
                     <span className="dept-stage">{department.scale_stage}</span>
                 </div>

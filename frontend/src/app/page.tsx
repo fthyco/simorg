@@ -152,7 +152,7 @@ export default function ControlCenter() {
         <div className="app-layout" style={{ background: "#ffffff", overflowY: "auto" }}>
             <header className="app-header">
                 <Link href="/" style={{ textDecoration: "none" }}>
-                    <div className="header-brand" style={{ cursor: "pointer" }}>⬡ OrgKernel <span style={{ color: "var(--text-muted)", marginLeft: "8px", fontSize: "11px", fontWeight: "normal" }}>Control Center</span></div>
+                    <div className="header-brand" style={{ cursor: "pointer" }}>OrgKernel <span style={{ color: "var(--text-muted)", marginLeft: "8px", fontSize: "11px", fontWeight: "normal" }}>Control Center</span></div>
                 </Link>
                 <div className="header-meta">
                     <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>+ Create New Org</button>
@@ -164,7 +164,6 @@ export default function ControlCenter() {
                     <div style={{ textAlign: "center", padding: "40px", color: "var(--text-muted)" }}>Loading Sessions...</div>
                 ) : projects.length === 0 ? (
                     <div className="empty-state" style={{ minHeight: "60vh" }}>
-                        <div className="empty-state-icon">⬡</div>
                         <div className="empty-state-text">No sessions yet. Create your first organization.</div>
                         <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ marginTop: "16px" }}>+ Create New Org</button>
                     </div>
@@ -216,13 +215,13 @@ export default function ControlCenter() {
                                         </div>
                                         <div style={{ textAlign: "right" }}>
                                             <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase" }}>Density</div>
-                                            <div style={{ fontSize: "18px", fontWeight: 700 }}>{p.structural_density}</div>
+                                            <div style={{ fontSize: "18px", fontWeight: 700 }}>{((p.structural_density / 10000) * 100).toFixed(1)}%</div>
                                         </div>
                                     </div>
 
                                     {p.structural_debt > 1000 && (
                                         <div style={{ fontSize: "10px", color: "var(--accent-rose)", marginBottom: "12px", background: "rgba(239, 68, 68, 0.06)", padding: "4px 8px", borderRadius: "4px", display: "inline-block" }}>
-                                            ⚠ High Structural Debt
+                                            High Structural Debt
                                         </div>
                                     )}
 

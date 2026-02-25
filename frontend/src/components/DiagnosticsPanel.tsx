@@ -152,7 +152,6 @@ export default function DiagnosticsPanel({
                     </div>
                     {diagnostics.warnings.map((w, i) => (
                         <div key={i} className="warning-item">
-                            <span className="warning-icon">⚠</span>
                             <span>{w}</span>
                         </div>
                     ))}
