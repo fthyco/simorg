@@ -212,7 +212,7 @@ def _replay_and_project(repo: SupabaseEventRepository, project_id: str, stage: s
     # Projection
     projection = None
     if event_count > 0:
-        if department_map and department_map.get("departments"):
+        if isinstance(department_map, dict) and department_map.get("departments"):
             # ── Template-driven projection: use exact department structure ──
             try:
                 projection = _build_template_projection(state, department_map)

@@ -45,7 +45,12 @@ try:
     from org_kernel.projection import DepartmentProjectionService
     _HAS_PROJECTION = True
 except ImportError:
+    import traceback
+    traceback.print_exc()
     _HAS_PROJECTION = False
+
+# Import template projection fallback from main
+from backend.main import _build_template_projection
 
 # ---------------------------------------------------------------------------
 # Config
@@ -120,9 +125,14 @@ def _build_event(event_type: str, payload: dict, timestamp: str) -> BaseEvent:
         )
     return cls(timestamp=timestamp, payload=payload)
 
-def _replay_and_project(repo: SupabaseEventRepository) -> dict:
+def _replay_and_project(repo: SupabaseEventRepository, department_map: dict = None) -> dict:
     events = repo.load_events(PROJECT_ID)
     event_count = len(events)
+
+    if department_map is None:
+        metadata = repo.get_project_metadata(PROJECT_ID)
+        if metadata and metadata.get("department_map"):
+            department_map = metadata["department_map"]
 
     engine = OrgEngine()
     engine.initialize_state()
@@ -155,10 +165,18 @@ def _replay_and_project(repo: SupabaseEventRepository) -> dict:
 
     # Projection
     projection = None
-    if _HAS_PROJECTION and event_count > 0:
-        try:
-            svc = DepartmentProjectionService()
-            view = svc.build(state)
+    if event_count > 0:
+        if isinstance(department_map, dict) and department_map.get("departments"):
+            try:
+                projection = _build_template_projection(state, department_map)
+            except Exception as e:
+                print(f"WARN: API Template projection failed: {e}")
+                projection = None
+
+        if projection is None and _HAS_PROJECTION:
+            try:
+                svc = DepartmentProjectionService()
+                view = svc.build(state)
             projection = {
                 "departments": [
                     {
@@ -180,7 +198,7 @@ def _replay_and_project(repo: SupabaseEventRepository) -> dict:
             projection = None
 
     roles = {}
-    for role in state.roles:
+    for role in state.roles.values():
         roles[role.id] = {
             "id": role.id,
             "name": role.name,

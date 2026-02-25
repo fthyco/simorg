@@ -241,6 +241,19 @@ class SupabaseEventRepository:
             if not rows:
                 return None
             row = rows[0]
+            dmap = row[7]
+            if isinstance(dmap, str):
+                try:
+                    dmap = json.loads(dmap)
+                except json.JSONDecodeError:
+                    pass
+            # Double-decode safeguard for JSON string literals inside JSONB
+            if isinstance(dmap, str):
+                try:
+                    dmap = json.loads(dmap)
+                except json.JSONDecodeError:
+                    pass
+
             return {
                 "project_id": row[0],
                 "stage": row[1],
@@ -249,7 +262,7 @@ class SupabaseEventRepository:
                 "structural_debt": row[4],
                 "structural_density": row[5],
                 "state_hash": row[6],
-                "department_map": row[7] if not isinstance(row[7], str) else json.loads(row[7]),
+                "department_map": dmap,
                 "last_updated": row[8].isoformat() if row[8] else None
             }
         finally:
