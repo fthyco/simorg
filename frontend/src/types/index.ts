@@ -45,6 +45,23 @@ export interface Diagnostics {
     warnings: string[];
 }
 
+export interface TransitionResult {
+    event_type: string;
+    success: boolean;
+    differentiation_executed: boolean;
+    suppressed_differentiation: boolean;
+    differentiation_skipped: boolean;
+    compression_executed: boolean;
+    deactivated: boolean;
+    reason: string;
+    primary_debt: number;
+    secondary_debt: number;
+    target_density: number; // scaled
+    shock_target: string;
+    magnitude: number;
+    cumulative_debt: number;
+}
+
 export interface StateResponse {
     event_count: number;
     state_hash: string;
@@ -52,6 +69,7 @@ export interface StateResponse {
     projection: Projection | null;
     roles: Record<string, Role>;
     dependencies: Dependency[];
+    transition_results: TransitionResult[];
 }
 
 export interface AppendEventRequest {

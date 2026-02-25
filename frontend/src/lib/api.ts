@@ -74,6 +74,10 @@ export async function getState(projectId: string): Promise<StateResponse> {
     return request<StateResponse>(`/projects/${projectId}/state`);
 }
 
+export async function verifyDeterminism(projectId: string): Promise<{ status: string; message: string }> {
+    return request<{ status: string; message: string }>(`/projects/${projectId}/verify-determinism`);
+}
+
 export async function appendEvent(
     projectId: string,
     req: AppendEventRequest

@@ -8,7 +8,10 @@ import DepartmentLevel from "./levels/DepartmentLevel";
 import GraphView from "./GraphView";
 import EventEditor from "./EventEditor";
 import DiagnosticsPanel from "./DiagnosticsPanel";
+import EventOutcomePanel from "./EventOutcomePanel";
 import Link from "next/link";
+import { verifyDeterminism } from "@/lib/api";
+import type { TransitionResult } from "@/types";
 
 export default function OrgCanvas({ projectId }: { projectId: string }) {
     const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -16,6 +19,8 @@ export default function OrgCanvas({ projectId }: { projectId: string }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [focusDeptId, setFocusDeptId] = useState<string | null>(null);
+    const [lastResult, setLastResult] = useState<TransitionResult | null>(null);
+    const [determinismStatus, setDeterminismStatus] = useState<string | null>(null);
 
     const refresh = useCallback(async () => {
         setLoading(true);
@@ -35,9 +40,13 @@ export default function OrgCanvas({ projectId }: { projectId: string }) {
     const handleEvent = async (req: AppendEventRequest) => {
         setLoading(true);
         setError("");
+        setDeterminismStatus(null);
         try {
             const data = await appendEvent(projectId, req);
             setState(data);
+            if (data.transition_results && data.transition_results.length > 0) {
+                setLastResult(data.transition_results[data.transition_results.length - 1]);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : String(err));
             throw err;
@@ -93,6 +102,24 @@ export default function OrgCanvas({ projectId }: { projectId: string }) {
                                     <span className="meta-value">{scaleStage}</span>
                                 </div>
                             )}
+                            <div className="meta-item" style={{ borderLeft: "1px solid var(--border-subtle)", paddingLeft: 12, marginLeft: 12 }}>
+                                <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={async () => {
+                                        setLoading(true);
+                                        try {
+                                            const res = await verifyDeterminism(projectId);
+                                            setDeterminismStatus(res.message);
+                                        } catch (e: any) {
+                                            setDeterminismStatus(`Failed: ${e.message}`);
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                >
+                                    Verify Determinism
+                                </button>
+                            </div>
                         </>
                     )}
                 </div>
@@ -105,6 +132,13 @@ export default function OrgCanvas({ projectId }: { projectId: string }) {
                 {error && (
                     <div className="error-banner-container">
                         <div className="error-banner">{error}</div>
+                    </div>
+                )}
+                {determinismStatus && (
+                    <div className="error-banner-container" style={{ top: error ? 100 : 64 }}>
+                        <div className={determinismStatus.startsWith("Failed") ? "error-banner" : "error-banner"} style={{ background: determinismStatus.startsWith("Failed") ? undefined : "var(--brand-primary)" }}>
+                            {determinismStatus}
+                        </div>
                     </div>
                 )}
 
@@ -135,15 +169,23 @@ export default function OrgCanvas({ projectId }: { projectId: string }) {
                         <div style={{
                             position: "absolute", bottom: 24, left: 24, zIndex: 10,
                             width: 320, maxHeight: "calc(100vh - 120px)", overflowY: "auto",
-                            boxShadow: "var(--shadow-card)", borderRadius: "var(--radius-lg)"
                         }}>
-                            <EventEditor onSubmit={handleEvent} loading={loading} roleIds={roleIds} />
+                            <EventEditor
+                                onSubmit={handleEvent}
+                                loading={loading || !!determinismStatus?.startsWith("Failed")}
+                                roleIds={roleIds}
+                            />
+                            {lastResult && <EventOutcomePanel result={lastResult} />}
                         </div>
                     </div>
                 )}
 
                 <div className="diagnostics-floating">
-                    <DiagnosticsPanel diagnostics={state?.diagnostics ?? null} eventCount={state?.event_count ?? 0} />
+                    <DiagnosticsPanel
+                        diagnostics={state?.diagnostics ?? null}
+                        eventCount={state?.event_count ?? 0}
+                        transitionResults={state?.transition_results}
+                    />
                 </div>
             </main>
         </div>

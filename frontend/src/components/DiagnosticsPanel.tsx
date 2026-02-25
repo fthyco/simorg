@@ -1,11 +1,12 @@
 "use client";
 
 import React from "react";
-import type { Diagnostics } from "@/types";
+import type { Diagnostics, TransitionResult } from "@/types";
 
 interface DiagnosticsPanelProps {
     diagnostics: Diagnostics | null;
     eventCount: number;
+    transitionResults?: TransitionResult[];
 }
 
 const SCALE = 10000;
@@ -13,6 +14,7 @@ const SCALE = 10000;
 export default function DiagnosticsPanel({
     diagnostics,
     eventCount,
+    transitionResults = [],
 }: DiagnosticsPanelProps) {
     if (!diagnostics) {
         return (
@@ -89,7 +91,7 @@ export default function DiagnosticsPanel({
                         marginBottom: 4,
                     }}
                 >
-                    <span>Structural Density</span>
+                    <span>Structural Density ({densityPercent < 20 ? 'Low' : densityPercent < 70 ? 'Medium' : 'High'})</span>
                     <span>{densityPercent.toFixed(1)}%</span>
                 </div>
                 <div className="density-bar-container">
@@ -105,6 +107,35 @@ export default function DiagnosticsPanel({
                     />
                 </div>
             </div>
+
+            {/* Debt Sparkline */}
+            {transitionResults.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>
+                        Debt Accumulation (Time)
+                    </div>
+                    <div style={{ display: "flex", alignItems: "flex-end", height: 40, gap: 2, padding: "4px 0" }}>
+                        {transitionResults.slice(-40).map((tr, i, arr) => {
+                            const maxDebt = Math.max(10, ...arr.map(t => t.cumulative_debt));
+                            const heightPct = (tr.cumulative_debt / maxDebt) * 100;
+                            const isSpike = i > 0 && tr.cumulative_debt - arr[i - 1].cumulative_debt > maxDebt * 0.2;
+                            return (
+                                <div
+                                    key={i}
+                                    style={{
+                                        flex: 1,
+                                        height: `${Math.max(4, heightPct)}%`,
+                                        background: isSpike ? "var(--accent-rose)" : "var(--brand-primary)",
+                                        opacity: isSpike ? 1 : 0.6,
+                                        borderRadius: "2px 2px 0 0"
+                                    }}
+                                    title={`Seq: ${eventCount - arr.length + i + 1} | Debt: ${tr.cumulative_debt}`}
+                                />
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Governance edges */}
             {diagnostics.governance_edges > 0 && (

@@ -113,6 +113,7 @@ function layoutClustered(
     roles: Record<string, Role>,
     dependencies: Dependency[],
     projection: Projection,
+    filters: any
 ): { nodes: Node[]; edges: Edge[] } {
     const deptIds = projection.departments.map((d) => d.id);
     const allNodes: Node[] = [];
@@ -150,19 +151,30 @@ function layoutClustered(
     const validRoleIds = new Set(Object.keys(roles));
     dependencies.forEach((dep, i) => {
         if (!validRoleIds.has(dep.from_role_id) || !validRoleIds.has(dep.to_role_id)) return;
+
+        // Filter logic
+        if (filters.criticalOnly && !dep.critical) return;
+        const dt = dep.dependency_type || "operational";
+        if (!filters.operational && dt === "operational") return;
+        if (!filters.informational && dt === "informational") return;
+        if (!filters.governance && dt === "governance") return;
+
         const fromDept = projection.role_to_department?.[dep.from_role_id];
         const toDept = projection.role_to_department?.[dep.to_role_id];
         const crossDept = fromDept !== toDept;
+        const isInfo = dt === "informational";
+        const isGov = dt === "governance";
+
         allEdges.push({
             id: `e-${dep.from_role_id}-${dep.to_role_id}-${i}`,
             source: dep.from_role_id, target: dep.to_role_id,
             animated: dep.critical,
             style: {
-                stroke: dep.critical ? "#ef4444" : crossDept ? "#f59e0b" : "#475569",
-                strokeWidth: dep.critical ? 2.5 : crossDept ? 2 : 1.5,
-                strokeDasharray: crossDept ? "8 4" : dep.critical ? "6 3" : undefined,
+                stroke: dep.critical ? "#ef4444" : isGov ? "#8b5cf6" : isInfo ? "#3b82f6" : crossDept ? "#f59e0b" : "#475569",
+                strokeWidth: dep.critical ? 3 : isGov ? 2.5 : crossDept ? 2 : 1.5,
+                strokeDasharray: dep.critical ? "6 3" : isGov ? "8 4" : isInfo ? "2 4" : crossDept ? "4 2" : undefined,
             },
-            label: dep.dependency_type !== "operational" ? dep.dependency_type : undefined,
+            label: dt !== "operational" ? dt : undefined,
             labelStyle: { fontSize: 10, fill: "#94a3b8" },
         });
     });
@@ -174,7 +186,7 @@ function layoutClustered(
 
 function layoutFocused(
     deptId: string, roles: Record<string, Role>,
-    dependencies: Dependency[], projection: Projection,
+    dependencies: Dependency[], projection: Projection, filters: any
 ): { nodes: Node[]; edges: Edge[] } {
     const dept = projection.departments.find((d) => d.id === deptId);
     if (!dept) return { nodes: [], edges: [] };
@@ -188,20 +200,33 @@ function layoutFocused(
         data: { role, deptColor: color },
     }));
 
-    const rawEdges: Edge[] = dependencies
-        .filter((dep) => deptRoleSet.has(dep.from_role_id) && deptRoleSet.has(dep.to_role_id))
-        .map((dep, i) => ({
+    const rawEdges: Edge[] = [];
+    dependencies.forEach((dep, i) => {
+        if (!deptRoleSet.has(dep.from_role_id) || !deptRoleSet.has(dep.to_role_id)) return;
+
+        // Filter logic
+        if (filters.criticalOnly && !dep.critical) return;
+        const dt = dep.dependency_type || "operational";
+        if (!filters.operational && dt === "operational") return;
+        if (!filters.informational && dt === "informational") return;
+        if (!filters.governance && dt === "governance") return;
+
+        const isInfo = dt === "informational";
+        const isGov = dt === "governance";
+
+        rawEdges.push({
             id: `e-${dep.from_role_id}-${dep.to_role_id}-${i}`,
             source: dep.from_role_id, target: dep.to_role_id,
             animated: dep.critical,
             style: {
-                stroke: dep.critical ? "#ef4444" : "#475569",
-                strokeWidth: dep.critical ? 2.5 : 1.5,
-                strokeDasharray: dep.critical ? "6 3" : undefined,
+                stroke: dep.critical ? "#ef4444" : isGov ? "#8b5cf6" : isInfo ? "#3b82f6" : "#475569",
+                strokeWidth: dep.critical ? 3 : isGov ? 2.5 : 1.5,
+                strokeDasharray: dep.critical ? "6 3" : isGov ? "8 4" : isInfo ? "2 4" : undefined,
             },
-            label: dep.dependency_type !== "operational" ? dep.dependency_type : undefined,
+            label: dt !== "operational" ? dt : undefined,
             labelStyle: { fontSize: 10, fill: "#94a3b8" },
-        }));
+        });
+    });
 
     return layoutGraph(rawNodes, rawEdges);
 }
@@ -222,6 +247,13 @@ export default function GraphView({
 }: GraphViewProps) {
     const deptIds = useMemo(() => projection?.departments.map((d) => d.id) ?? [], [projection]);
 
+    const [filters, setFilters] = React.useState({
+        operational: true,
+        informational: true,
+        governance: true,
+        criticalOnly: false,
+    });
+
     const focusDept = useMemo(() => {
         if (!focusDeptId || !projection) return null;
         return projection.departments.find((d) => d.id === focusDeptId) ?? null;
@@ -229,8 +261,8 @@ export default function GraphView({
 
     const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
         if (Object.keys(roles).length === 0) return { nodes: [], edges: [] };
-        if (focusDeptId && projection) return layoutFocused(focusDeptId, roles, dependencies, projection);
-        if (projection && projection.departments.length > 0) return layoutClustered(roles, dependencies, projection);
+        if (focusDeptId && projection) return layoutFocused(focusDeptId, roles, dependencies, projection, filters);
+        if (projection && projection.departments.length > 0) return layoutClustered(roles, dependencies, projection, filters);
 
         // Fallback
         const rawNodes: Node[] = Object.values(roles).map((role) => ({
@@ -245,7 +277,7 @@ export default function GraphView({
             style: { stroke: dep.critical ? "#ef4444" : "#475569", strokeWidth: 1.5 },
         }));
         return layoutGraph(rawNodes, rawEdges);
-    }, [roles, dependencies, projection, deptIds, focusDeptId]);
+    }, [roles, dependencies, projection, deptIds, focusDeptId, filters]);
 
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -291,6 +323,22 @@ export default function GraphView({
                         </span>
                     </>
                 )}
+                <span className="toolbar-divider" />
+                <div style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "11px", color: "var(--text-secondary)" }}>
+                    <label style={{ cursor: "pointer", display: "flex", gap: "4px" }}>
+                        <input type="checkbox" checked={filters.operational} onChange={e => setFilters(f => ({ ...f, operational: e.target.checked }))} /> Ops
+                    </label>
+                    <label style={{ cursor: "pointer", display: "flex", gap: "4px" }}>
+                        <input type="checkbox" checked={filters.informational} onChange={e => setFilters(f => ({ ...f, informational: e.target.checked }))} /> Info
+                    </label>
+                    <label style={{ cursor: "pointer", display: "flex", gap: "4px" }}>
+                        <input type="checkbox" checked={filters.governance} onChange={e => setFilters(f => ({ ...f, governance: e.target.checked }))} /> Gov
+                    </label>
+                    <span className="toolbar-divider" />
+                    <label style={{ cursor: "pointer", display: "flex", gap: "4px", color: filters.criticalOnly ? "var(--accent-rose)" : "inherit" }}>
+                        <input type="checkbox" checked={filters.criticalOnly} onChange={e => setFilters(f => ({ ...f, criticalOnly: e.target.checked }))} /> Critical Only
+                    </label>
+                </div>
             </div>
 
             <ReactFlow

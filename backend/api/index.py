@@ -125,10 +125,29 @@ def _replay_and_project(repo: SupabaseEventRepository) -> dict:
     event_count = len(events)
 
     engine = OrgEngine()
+    engine.initialize_state()
+    transition_results = []
+    
     if events:
-        engine.replay(events)
-    else:
-        engine.initialize_state()
+        for event in events:
+            _, tr = engine.apply_event(event)
+            transition_results.append({
+                "event_type": tr.event_type,
+                "success": tr.success,
+                "differentiation_executed": tr.differentiation_executed,
+                "suppressed_differentiation": tr.suppressed_differentiation,
+                "differentiation_skipped": tr.differentiation_skipped,
+                "compression_executed": tr.compression_executed,
+                "deactivated": tr.deactivated,
+                "reason": tr.reason,
+                "primary_debt": tr.primary_debt,
+                "secondary_debt": tr.secondary_debt,
+                "target_density": tr.target_density,
+                "shock_target": tr.shock_target,
+                "magnitude": tr.magnitude,
+                "cumulative_debt": engine.state.structural_debt,
+            })
+
 
     state = engine.state
     state_hash = canonical_hash(state)
@@ -190,6 +209,7 @@ def _replay_and_project(repo: SupabaseEventRepository) -> dict:
         "projection": projection,
         "roles": roles,
         "dependencies": dependencies,
+        "transition_results": transition_results,
     }
 
 # ---------------------------------------------------------------------------
@@ -208,6 +228,30 @@ def health():
 def get_state():
     repo = _get_repo()
     return _replay_and_project(repo)
+
+@app.get("/api/verify-determinism")
+def verify_determinism():
+    try:
+        from org_runtime.session import SimulationSession, DeterminismError
+        from org_runtime.snapshot_repository import NullSnapshotRepository
+    except ImportError:
+        raise HTTPException(
+            status_code=500,
+            detail="org_runtime not available for verification"
+        )
+    
+    repo = _get_repo()
+    engine = OrgEngine()
+    snapshot_repo = NullSnapshotRepository()
+    session = SimulationSession(PROJECT_ID, engine, repo, snapshot_repo)
+    
+    try:
+        session.verify_determinism()
+        return {"status": "ok", "message": "Determinism verified."}
+    except DeterminismError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Verification failed: {e}")
 
 @app.post("/api/append-event")
 def append_event(req: AppendEventRequest):

@@ -175,12 +175,32 @@ def _replay_and_project(repo: SupabaseEventRepository, project_id: str, stage: s
         if metadata and metadata.get("department_map"):
             department_map = metadata["department_map"]
 
-    # Replay
+    # Replay and collect transition results
     engine = OrgEngine()
+    engine.initialize_state()
+    transition_results = []
     if events:
-        engine.replay(events)
-    else:
-        engine.initialize_state()
+        for event in events:
+            _, tr = engine.apply_event(event)
+            # Convert dataclass to dict for JSON serialization
+            tr_dict = {
+                "event_type": tr.event_type,
+                "success": tr.success,
+                "differentiation_executed": tr.differentiation_executed,
+                "suppressed_differentiation": tr.suppressed_differentiation,
+                "differentiation_skipped": tr.differentiation_skipped,
+                "compression_executed": tr.compression_executed,
+                "deactivated": tr.deactivated,
+                "reason": tr.reason,
+                "primary_debt": tr.primary_debt,
+                "secondary_debt": tr.secondary_debt,
+                "target_density": tr.target_density,
+                "shock_target": tr.shock_target,
+                "magnitude": tr.magnitude,
+                "cumulative_debt": engine.state.structural_debt,
+            }
+            transition_results.append(tr_dict)
+
 
     state = engine.state
     state_dict = state.to_dict()
@@ -275,6 +295,7 @@ def _replay_and_project(repo: SupabaseEventRepository, project_id: str, stage: s
         "projection": projection,
         "roles": roles,
         "dependencies": dependencies,
+        "transition_results": transition_results,
     }
 
 
@@ -455,6 +476,37 @@ def get_state(project_id: str):
     """
     repo = _get_repo()
     return _replay_and_project(repo, project_id)
+
+
+@app.get("/projects/{project_id}/verify-determinism")
+def verify_determinism(project_id: str):
+    """
+    Verify event stream determinism against stored stream_metadata hashes.
+    Uses the org_runtime session to run the verification.
+    """
+    try:
+        from org_runtime.session import SimulationSession, DeterminismError
+        from org_runtime.snapshot_repository import NullSnapshotRepository
+    except ImportError:
+        raise HTTPException(
+            status_code=500,
+            detail="org_runtime not available for verification"
+        )
+    
+    repo = _get_repo()
+    engine = OrgEngine()
+    snapshot_repo = NullSnapshotRepository()
+    session = SimulationSession(project_id, engine, repo, snapshot_repo)
+    
+    try:
+        session.verify_determinism()
+        return {"status": "ok", "message": "Determinism verified."}
+    except DeterminismError as e:
+        # Return HTTP 409 Conflict with the exact details
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Verification failed: {e}")
+
 
 
 @app.post("/projects/{project_id}/append-event")

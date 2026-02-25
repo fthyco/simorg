@@ -29,26 +29,37 @@ function getDeptColor(deptId: string, deptIds: string[]): string {
 interface DepartmentNodeData {
     department: Department;
     color: string;
+    boundaryHeat: number;
     onZoomToRoles: () => void;
     onFocusDept: () => void;
     [key: string]: unknown;
 }
 
 function DepartmentNode({ data }: NodeProps<Node<DepartmentNodeData>>) {
-    const { department, color, onZoomToRoles, onFocusDept } = data;
+    const { department, color, boundaryHeat, onZoomToRoles, onFocusDept } = data;
     const width = Math.min(200 + department.role_ids.length * 20, 350);
     const densityPct = ((department.internal_density / SCALE) * 100).toFixed(1);
 
     return (
         <div className="department-node"
-            style={{ width, borderColor: color, boxShadow: `0 0 15px ${color}33` }}
+            style={{
+                width,
+                borderColor: boundaryHeat > 0.5 ? "var(--accent-rose)" : color,
+                boxShadow: boundaryHeat > 0.5 ? `0 0 15px rgba(239, 68, 68, 0.4)` : `0 0 15px ${color}33`,
+                borderWidth: boundaryHeat > 0.5 ? 2 : 1
+            }}
         >
             <Handle type="target" position={Position.Top} />
             <div className="dept-node-header">
                 <h3>{department.semantic_label === "Unclassified"
                     ? department.id.replace("dept_", "Dep ").replace(/^Dep (\d+)/, (_, n) => `Dep ${parseInt(n) + 1}`)
                     : department.semantic_label}</h3>
-                <span className="dept-stage">{department.scale_stage}</span>
+                <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                    {boundaryHeat > 0.5 && (
+                        <span title={`Boundary Heat: ${boundaryHeat.toFixed(2)}`} style={{ color: "var(--accent-rose)", fontSize: 13, cursor: "help" }}>🔥</span>
+                    )}
+                    <span className="dept-stage">{department.scale_stage}</span>
+                </div>
             </div>
             <div className="dept-metrics">
                 <div className="d-metric">
@@ -114,6 +125,7 @@ export default function DepartmentLevel({ state, onZoomOut, onZoomToRoles, onZoo
             data: {
                 department: dept,
                 color: getDeptColor(dept.id, deptIds),
+                boundaryHeat: projection.boundary_heat[dept.id] || 0,
                 onZoomToRoles,
                 onFocusDept: () => onZoomToDept(dept.id),
             },
