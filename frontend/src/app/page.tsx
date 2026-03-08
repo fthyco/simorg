@@ -1,301 +1,306 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { listProjects, deleteProject, duplicateProject, generateOrg, renameProject, ProjectMetadata, GeneratorRequest } from "@/lib/api";
 import Link from "next/link";
 
-export default function ControlCenter() {
-    const [projects, setProjects] = useState<ProjectMetadata[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    // Org Modal State
-    const [showModal, setShowModal] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
-    const [stage, setStage] = useState<string>("seed");
-    const [industry, setIndustry] = useState<string>("tech_saas");
-    const [successLevel, setSuccessLevel] = useState<number>(50);
-    const [advanced, setAdvanced] = useState(false);
-    const [overrides, setOverrides] = useState({
-        capital: 50000, talent: 50000, time: 50000, political_cost: 50000,
-        differentiation_threshold: 3, compression_limit: 5,
-    });
-
-    // Rename State
-    const [renamingId, setRenamingId] = useState<string | null>(null);
-    const [renameValue, setRenameValue] = useState("");
-
-    const getSavedProjectIds = (): string[] => {
-        if (typeof window === "undefined") return [];
-        try {
-            const saved = localStorage.getItem("myOrgProjectIds");
-            return saved ? JSON.parse(saved) : [];
-        } catch {
-            return [];
-        }
-    };
-
-    const saveProjectId = (id: string) => {
-        const saved = getSavedProjectIds();
-        if (!saved.includes(id)) {
-            saved.push(id);
-            localStorage.setItem("myOrgProjectIds", JSON.stringify(saved));
-        }
-    };
-
-    const removeProjectId = (id: string) => {
-        const saved = getSavedProjectIds();
-        const next = saved.filter(savedId => savedId !== id);
-        localStorage.setItem("myOrgProjectIds", JSON.stringify(next));
-    };
-
-    const fetchProjects = async () => {
-        setLoading(true);
-        try {
-            const savedIds = getSavedProjectIds();
-            if (savedIds.length === 0) {
-                setProjects([]);
-                setLoading(false);
-                return;
-            }
-            const data = await listProjects(savedIds);
-            setProjects(data);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
+/* ───────────────────── Animated counter ───────────────────── */
+function AnimatedNumber({ target, duration = 1800 }: { target: number; duration?: number }) {
+    const [value, setValue] = useState(0);
     useEffect(() => {
-        fetchProjects();
-    }, []);
+        let start = 0;
+        const step = Math.ceil(target / (duration / 16));
+        const id = setInterval(() => {
+            start += step;
+            if (start >= target) { setValue(target); clearInterval(id); }
+            else setValue(start);
+        }, 16);
+        return () => clearInterval(id);
+    }, [target, duration]);
+    return <>{value.toLocaleString()}</>;
+}
 
-    const handleDelete = async (id: string, e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!confirm("Delete this session?")) return;
-        try {
-            await deleteProject(id);
-            removeProjectId(id);
-            await fetchProjects();
-        } catch (err) {
-            console.error(err);
-        }
-    };
+/* ───────────────────── Floating particles ───────────────────── */
+function Particles() {
+    const dots = Array.from({ length: 18 }, (_, i) => ({
+        id: i,
+        left: `${5 + (i * 5.3) % 90}%`,
+        top: `${8 + (i * 7.1) % 80}%`,
+        size: 3 + (i % 4),
+        delay: (i * 0.4) % 5,
+        dur: 6 + (i % 5),
+    }));
+    return (
+        <div className="about-particles" aria-hidden>
+            {dots.map(d => (
+                <span
+                    key={d.id}
+                    className="about-particle"
+                    style={{
+                        left: d.left,
+                        top: d.top,
+                        width: d.size,
+                        height: d.size,
+                        animationDelay: `${d.delay}s`,
+                        animationDuration: `${d.dur}s`,
+                    }}
+                />
+            ))}
+        </div>
+    );
+}
 
-    const handleDuplicate = async (id: string, e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const newId = crypto.randomUUID();
-        try {
-            await duplicateProject(id, newId);
-            saveProjectId(newId);
-            await fetchProjects();
-        } catch (err) {
-            console.error(err);
-        }
-    };
+/* ───────────────────── Feature card ───────────────────── */
+function FeatureCard({ icon, title, description }: { icon: string; title: string; description: string }) {
+    return (
+        <div className="about-feature-card">
+            <div className="about-feature-icon">{icon}</div>
+            <h3 className="about-feature-title">{title}</h3>
+            <p className="about-feature-desc">{description}</p>
+        </div>
+    );
+}
 
-    const startRename = (id: string, e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setRenamingId(id);
-        setRenameValue(id);
-    };
+/* ───────────────────── Architecture layer ───────────────────── */
+function ArchLayer({ label, items, accent }: { label: string; items: string[]; accent: string }) {
+    return (
+        <div className="about-arch-layer" style={{ borderLeftColor: accent }}>
+            <div className="about-arch-label" style={{ color: accent }}>{label}</div>
+            <div className="about-arch-items">
+                {items.map((t, i) => <span key={i} className="about-arch-tag">{t}</span>)}
+            </div>
+        </div>
+    );
+}
 
-    const confirmRename = async (e: React.FormEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!renamingId || !renameValue.trim() || renameValue === renamingId) {
-            setRenamingId(null);
-            return;
-        }
-        try {
-            await renameProject(renamingId, renameValue.trim());
-
-            // Update local storage to point to the new ID
-            const savedIds = getSavedProjectIds();
-            const idx = savedIds.indexOf(renamingId);
-            if (idx !== -1) {
-                savedIds[idx] = renameValue.trim();
-                localStorage.setItem("myOrgProjectIds", JSON.stringify(savedIds));
-            }
-
-            setRenamingId(null);
-            await fetchProjects();
-        } catch (err) {
-            console.error(err);
-            alert("Failed to rename session.");
-        }
-    };
-
-    const handleGenerate = async () => {
-        setSubmitting(true);
-        const newId = crypto.randomUUID();
-        try {
-            await generateOrg(newId, {
-                stage, industry, success_level: successLevel,
-                ...(advanced ? { overrides } : {})
-            });
-            saveProjectId(newId);
-            window.location.href = `/session/${newId}`;
-        } catch (err) {
-            console.error(err);
-            alert("Failed to generate organization.");
-        } finally {
-            setSubmitting(false);
-            setShowModal(false);
-        }
-    };
+/* ═══════════════════════════════════════════════════════════════
+   ABOUT / WELCOME PAGE
+   ═══════════════════════════════════════════════════════════════ */
+export default function AboutPage() {
+    const [visible, setVisible] = useState(false);
+    useEffect(() => { setVisible(true); }, []);
 
     return (
-        <div className="app-layout" style={{ background: "#ffffff", overflowY: "auto" }}>
-            <header className="app-header">
-                <Link href="/" style={{ textDecoration: "none" }}>
-                    <div className="header-brand" style={{ cursor: "pointer" }}>OrgKernel <span style={{ color: "var(--text-muted)", marginLeft: "8px", fontSize: "11px", fontWeight: "normal" }}>Control Center</span></div>
+        <div className={`about-page ${visible ? "about-visible" : ""}`}>
+            <Particles />
+
+            {/* ── Hero ── */}
+            <section className="about-hero">
+                <div className="about-hero-inner">
+                    <div className="about-hero-badge">Deterministic Simulation Engine</div>
+                    <h1 className="about-hero-title">
+                        SimOrg<span className="about-hero-dot">.</span>
+                    </h1>
+                    <p className="about-hero-subtitle">
+                        Model organizations as evolving structural graphs.
+                        Apply pressures, inject shocks, observe adaptation — with
+                        <strong> 100 % byte-identical replay</strong> across every environment.
+                    </p>
+
+                    <div className="about-hero-actions">
+                        <Link href="/dashboard" className="btn btn-primary about-cta">
+                            Enter Control Center
+                        </Link>
+                        <a
+                            href="https://github.com/fthyco/simorg"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary about-cta"
+                        >
+                            View on GitHub
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            {/* ── Stats ribbon ── */}
+            <section className="about-stats">
+                <div className="about-stat">
+                    <div className="about-stat-value"><AnimatedNumber target={8} /></div>
+                    <div className="about-stat-label">Event Types</div>
+                </div>
+                <div className="about-stat">
+                    <div className="about-stat-value"><AnimatedNumber target={7} /></div>
+                    <div className="about-stat-label">Hard Invariants</div>
+                </div>
+                <div className="about-stat">
+                    <div className="about-stat-value"><AnimatedNumber target={20} /></div>
+                    <div className="about-stat-label">Industry Templates</div>
+                </div>
+                <div className="about-stat">
+                    <div className="about-stat-value">int64</div>
+                    <div className="about-stat-label">Fixed-Point Math</div>
+                </div>
+            </section>
+
+            {/* ── What is SimOrg ── */}
+            <section className="about-section">
+                <h2 className="about-section-title">What is SimOrg?</h2>
+                <p className="about-section-body">
+                    SimOrg is a deterministic, event-sourced organizational simulation engine.
+                    It models companies as directed dependency graphs — roles connected by
+                    operational, informational, and governance edges — and lets you
+                    stress-test them under realistic constraints.
+                </p>
+                <p className="about-section-body">
+                    Every state mutation is an immutable event. Every transition is validated
+                    against seven structural invariants. Every final state is verified via
+                    canonical SHA-256 hashing. There are no floats, no randomness,
+                    no silent repairs. <strong>Structure is truth.</strong>
+                </p>
+            </section>
+
+            {/* ── Features ── */}
+            <section className="about-section">
+                <h2 className="about-section-title">Core Capabilities</h2>
+                <div className="about-feature-grid">
+                    <FeatureCard
+                        icon="E"
+                        title="Event-Sourced Kernel"
+                        description="8 event types — add roles, inject shocks, differentiate, compress — all deterministic, all replayable."
+                    />
+                    <FeatureCard
+                        icon="G"
+                        title="Graph Analysis"
+                        description="Structural density, critical cycle detection, isolated role detection — all in int64 fixed-point."
+                    />
+                    <FeatureCard
+                        icon="T"
+                        title="Industry Templates"
+                        description="Generate realistic orgs for SaaS, FinTech, E-Commerce, HealthTech, EdTech — across 4 growth stages."
+                    />
+                    <FeatureCard
+                        icon="P"
+                        title="Projection Layer"
+                        description="Deterministic clustering, semantic labeling, and drift detection between structure and declared semantics."
+                    />
+                    <FeatureCard
+                        icon="V"
+                        title="3-Level Visualization"
+                        description="World Map, Department Graph, and Role-Level views — powered by ReactFlow with dagre auto-layout."
+                    />
+                    <FeatureCard
+                        icon="D"
+                        title="Drift Detection"
+                        description="Compare declared department labels vs emergent structural clusters. Find phantom departments and hidden couplings."
+                    />
+                </div>
+            </section>
+
+            {/* ── Architecture stack ── */}
+            <section className="about-section">
+                <h2 className="about-section-title">Architecture</h2>
+                <div className="about-arch-stack">
+                    <ArchLayer
+                        label="Frontend"
+                        items={["Next.js 14", "React 18", "ReactFlow", "dagre", "TypeScript"]}
+                        accent="#3b82f6"
+                    />
+                    <ArchLayer
+                        label="Backend"
+                        items={["FastAPI", "Uvicorn", "Pydantic", "pg8000"]}
+                        accent="#8b5cf6"
+                    />
+                    <ArchLayer
+                        label="Kernel"
+                        items={["OrgState", "Events", "Transitions", "Invariants", "Hashing", "Snapshots"]}
+                        accent="#10b981"
+                    />
+                    <ArchLayer
+                        label="Projection"
+                        items={["Clustering", "Semantic Labeler", "Drift Detection", "Topology Tracker"]}
+                        accent="#f59e0b"
+                    />
+                    <ArchLayer
+                        label="Generator"
+                        items={["Industry Templates", "7-Step Compiler", "Deterministic RNG", "Replay Verification"]}
+                        accent="#ef4444"
+                    />
+                    <ArchLayer
+                        label="Persistence"
+                        items={["Supabase (PostgreSQL)", "Event Store", "Stream Metadata", "Snapshots"]}
+                        accent="#06b6d4"
+                    />
+                </div>
+            </section>
+
+            {/* ── How it works ── */}
+            <section className="about-section">
+                <h2 className="about-section-title">How It Works</h2>
+                <div className="about-steps">
+                    <div className="about-step">
+                        <div className="about-step-num">1</div>
+                        <div>
+                            <h3>Generate</h3>
+                            <p>Pick an industry and growth stage. The generator compiles a deterministic event stream from realistic templates.</p>
+                        </div>
+                    </div>
+                    <div className="about-step">
+                        <div className="about-step-num">2</div>
+                        <div>
+                            <h3>Simulate</h3>
+                            <p>Apply events — shocks, constraints, differentiations, compressions. Watch the structure evolve in real-time.</p>
+                        </div>
+                    </div>
+                    <div className="about-step">
+                        <div className="about-step-num">3</div>
+                        <div>
+                            <h3>Analyze</h3>
+                            <p>Inspect structural density, debt accumulation, drift between declared and emergent departments.</p>
+                        </div>
+                    </div>
+                    <div className="about-step">
+                        <div className="about-step-num">4</div>
+                        <div>
+                            <h3>Verify</h3>
+                            <p>Replay the full event stream. Compare SHA-256 hashes. Confirm byte-identical determinism across environments.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* ── Principles ── */}
+            <section className="about-section">
+                <h2 className="about-section-title">Design Philosophy</h2>
+                <div className="about-principles">
+                    <div className="about-principle">
+                        <span className="about-principle-marker" />
+                        Structure is truth. Semantics are overlays.
+                    </div>
+                    <div className="about-principle">
+                        <span className="about-principle-marker" />
+                        Events are the only source of change.
+                    </div>
+                    <div className="about-principle">
+                        <span className="about-principle-marker" />
+                        Replay is the only source of reconstruction.
+                    </div>
+                    <div className="about-principle">
+                        <span className="about-principle-marker" />
+                        Determinism is non-negotiable.
+                    </div>
+                    <div className="about-principle">
+                        <span className="about-principle-marker" />
+                        No floats. No silent repairs. No implicit mutation.
+                    </div>
+                </div>
+            </section>
+
+            {/* ── CTA footer ── */}
+            <section className="about-footer-cta">
+                <h2>Ready to model your first organization?</h2>
+                <Link href="/dashboard" className="btn btn-primary about-cta" style={{ fontSize: 15 }}>
+                    Enter Control Center
                 </Link>
-                <div className="header-meta">
-                    <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>+ Create New Org</button>
+            </section>
+
+            {/* ── Footer ── */}
+            <footer className="about-footer">
+                <div className="about-footer-inner">
+                    <span>SimOrg — Deterministic Organizational Simulation Engine</span>
+                    <span className="about-footer-sep">|</span>
+                    <span>Built with precision for the systems thinking community</span>
                 </div>
-            </header>
-
-            <main style={{ padding: "40px", maxWidth: "1200px", margin: "0 auto", width: "100%" }}>
-                {loading && projects.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "40px", color: "var(--text-muted)" }}>Loading Sessions...</div>
-                ) : projects.length === 0 ? (
-                    <div className="empty-state" style={{ minHeight: "60vh" }}>
-                        <div className="empty-state-text">No sessions yet. Create your first organization.</div>
-                        <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ marginTop: "16px" }}>+ Create New Org</button>
-                    </div>
-                ) : (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "20px" }}>
-                        {projects.map(p => (
-                            <Link href={`/session/${p.project_id}`} key={p.project_id} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                                <div className="card session-card" style={{ cursor: "pointer", position: "relative" }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "12px" }}>
-                                        <div style={{ flex: 1 }}>
-                                            {renamingId === p.project_id ? (
-                                                <form onSubmit={confirmRename} onClick={e => e.stopPropagation()} style={{ display: "flex", gap: "4px" }}>
-                                                    <input
-                                                        autoFocus
-                                                        className="input-field"
-                                                        value={renameValue}
-                                                        onChange={(e) => setRenameValue(e.target.value)}
-                                                        onBlur={() => setRenamingId(null)}
-                                                        style={{ fontSize: "13px", padding: "4px 8px", height: "28px" }}
-                                                    />
-                                                </form>
-                                            ) : (
-                                                <div
-                                                    onDoubleClick={(e) => startRename(p.project_id, e)}
-                                                    title="Double-click to rename"
-                                                    style={{ fontWeight: 700, fontSize: "14px", marginBottom: "4px", cursor: "text" }}
-                                                >
-                                                    {p.project_id}
-                                                </div>
-                                            )}
-                                            <div style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "monospace" }}>{p.state_hash?.slice(0, 12) || "—"}</div>
-                                        </div>
-                                        <div style={{ textAlign: "right" }}>
-                                            <div style={{ fontSize: "10px", textTransform: "uppercase", fontWeight: 600, color: "var(--text-secondary)" }}>{p.stage || "—"}</div>
-                                            <div style={{ fontSize: "10px", color: "var(--text-muted)" }}>{p.industry || "—"}</div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
-                                        <div>
-                                            <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase" }}>Events</div>
-                                            <div style={{ fontSize: "18px", fontWeight: 700 }}>{p.event_count}</div>
-                                        </div>
-                                        <div style={{ textAlign: "center" }}>
-                                            <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase" }}>Debt</div>
-                                            <div style={{ fontSize: "18px", fontWeight: 700, color: p.structural_debt > 1000 ? "var(--accent-rose)" : "inherit" }}>
-                                                {p.structural_debt}
-                                            </div>
-                                        </div>
-                                        <div style={{ textAlign: "right" }}>
-                                            <div style={{ fontSize: "10px", color: "var(--text-muted)", textTransform: "uppercase" }}>Density</div>
-                                            <div style={{ fontSize: "18px", fontWeight: 700 }}>{((p.structural_density / 10000) * 100).toFixed(1)}%</div>
-                                        </div>
-                                    </div>
-
-                                    {p.structural_debt > 1000 && (
-                                        <div style={{ fontSize: "10px", color: "var(--accent-rose)", marginBottom: "12px", background: "rgba(239, 68, 68, 0.06)", padding: "4px 8px", borderRadius: "4px", display: "inline-block" }}>
-                                            High Structural Debt
-                                        </div>
-                                    )}
-
-                                    <div style={{ display: "flex", gap: "8px", borderTop: "1px solid var(--border-subtle)", paddingTop: "12px" }}>
-                                        <button className="btn btn-secondary btn-sm" style={{ flex: 1, fontSize: "10px" }}>Open</button>
-                                        <button className="btn btn-secondary btn-sm" style={{ fontSize: "10px" }} onClick={(e) => startRename(p.project_id, e)}>Rename</button>
-                                        <button className="btn btn-secondary btn-sm" style={{ fontSize: "10px" }} onClick={(e) => handleDuplicate(p.project_id, e)}>Clone</button>
-                                        <button className="btn btn-secondary btn-sm" style={{ fontSize: "10px", color: "var(--accent-rose)" }} onClick={(e) => handleDelete(p.project_id, e)}>Delete</button>
-                                    </div>
-                                </div>
-                            </Link>
-                        ))}
-                    </div>
-                )}
-            </main>
-
-            {/* Generator Modal */}
-            {showModal && (
-                <div className="loading-overlay" style={{ alignItems: "center", justifyContent: "center" }}>
-                    <div className="lobby-modal" style={{ width: "480px", maxHeight: "85vh", overflowY: "auto", position: "relative", zIndex: 100 }}>
-                        <h2>Organizational Modeling Engine</h2>
-                        <p style={{ color: "var(--text-secondary)", marginBottom: "24px" }}>
-                            Configure the topological seeds and constraint profile for a new simulation session.
-                        </p>
-
-                        <div className="form-group" style={{ marginBottom: "20px" }}>
-                            <label style={{ display: "block", marginBottom: "8px", fontWeight: 600, textAlign: "left" }}>Scale Stage</label>
-                            <select value={stage} onChange={(e) => setStage(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "#f8fafc" }}>
-                                <option value="seed">Seed (Lean, singular focus)</option>
-                                <option value="growth">Growth (Emerging specialization)</option>
-                                <option value="structured">Structured (Formal departments)</option>
-                                <option value="mature">Mature (High density, high debt risk)</option>
-                            </select>
-                        </div>
-                        <div className="form-group" style={{ marginBottom: "20px" }}>
-                            <label style={{ display: "block", marginBottom: "8px", fontWeight: 600, textAlign: "left" }}>Industry Topology</label>
-                            <select value={industry} onChange={(e) => setIndustry(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "#f8fafc" }}>
-                                <option value="tech_saas">Tech SaaS (Hub & Spoke / Dense Product)</option>
-                                <option value="manufacturing">Manufacturing (Linear Supply Chain)</option>
-                                <option value="marketplace">Marketplace (Multi-Cluster Supply/Demand)</option>
-                            </select>
-                        </div>
-                        <div className="form-group" style={{ marginBottom: "24px" }}>
-                            <label style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", fontWeight: 600 }}>
-                                <span>Success Level (Constraint Proxy)</span>
-                                <span style={{ color: "var(--brand-primary)" }}>{successLevel}</span>
-                            </label>
-                            <input type="range" min="1" max="100" value={successLevel} onChange={(e) => setSuccessLevel(parseInt(e.target.value, 10))} style={{ width: "100%", accentColor: "#1f2937" }} />
-                        </div>
-                        <div style={{ marginBottom: "24px", paddingTop: "16px", borderTop: "1px solid var(--border-subtle)" }}>
-                            <label style={{ display: "flex", alignItems: "center", cursor: "pointer", fontWeight: 600 }}>
-                                <input type="checkbox" checked={advanced} onChange={(e) => setAdvanced(e.target.checked)} style={{ marginRight: "8px" }} />
-                                Advanced Constraint Overrides
-                            </label>
-                            {advanced && (
-                                <div style={{ marginTop: "16px", padding: "16px", backgroundColor: "#f8fafc", borderRadius: "6px", fontSize: "13px" }}>
-                                    {Object.entries(overrides).map(([key, val]) => (
-                                        <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", alignItems: "center" }}>
-                                            <label>{key}</label>
-                                            <input type="number" value={val} onChange={(e) => setOverrides(prev => ({ ...prev, [key]: parseInt(e.target.value) || 0 }))} style={{ width: "80px", padding: "4px", borderRadius: "4px", border: "1px solid var(--border-subtle)", textAlign: "right" }} />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "16px" }}>
-                            <button className="btn btn-secondary" onClick={() => setShowModal(false)} disabled={submitting}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleGenerate} disabled={submitting}>
-                                {submitting ? "Initializing Sequence..." : "Generate Organization"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            </footer>
         </div>
     );
 }

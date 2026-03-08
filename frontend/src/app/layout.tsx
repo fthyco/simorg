@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-    title: "OrgKernel — Organizational Structure Visualizer",
+    title: "SimOrg — Deterministic Organizational Simulation Engine",
     description:
         "Deterministic organizational kernel — event-sourced structure visualization with graph analysis",
 };

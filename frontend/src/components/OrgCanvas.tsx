@@ -74,8 +74,8 @@ export default function OrgCanvas({ projectId }: { projectId: string }) {
     return (
         <div className="app-layout">
             <header className="app-header">
-                <Link href="/" style={{ textDecoration: "none" }}>
-                    <div className="header-brand" style={{ cursor: "pointer" }}>OrgKernel</div>
+                <Link href="/dashboard" style={{ textDecoration: "none" }}>
+                    <div className="header-brand" style={{ cursor: "pointer" }}>SimOrg</div>
                 </Link>
                 <div className="header-meta">
                     <div className="meta-item">
